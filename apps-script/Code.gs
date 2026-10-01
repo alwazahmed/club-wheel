@@ -59,7 +59,7 @@ function confirmDraw(drawId) {
 
     // A previous batch may have succeeded while its response was lost. The
     // fixed destination row lets a retry detect that without another write.
-    if (pending.commitRow) {
+    if (pending.commitRow && pending.commitRow <= winnersSheet.getMaxRows()) {
       const recorded = winnersSheet.getRange(pending.commitRow, 1, 1, 2).getValues()[0];
       if (String(recorded[0]).trim() === pending.winnerId &&
           String(recorded[1]).trim() === pending.winnerName) {
@@ -123,7 +123,7 @@ function voidDraw(drawId, reason) {
     if (!pending || pending.drawId !== drawId) {
       throw new Error('This draw is no longer pending. Refresh the game.');
     }
-    if (pending.commitRow) {
+    if (pending.commitRow && pending.commitRow <= getSpreadsheet_().getSheetByName(WINNERS_TAB).getMaxRows()) {
       const winnersSheet = getSpreadsheet_().getSheetByName(WINNERS_TAB);
       const recorded = winnersSheet.getRange(pending.commitRow, 1, 1, 2).getValues()[0];
       if (String(recorded[0]).trim() === pending.winnerId &&
@@ -185,7 +185,7 @@ function readData_() {
 
   const participantRows = participantsSheet.getLastRow() > 1
     ? participantsSheet.getRange(2, 1, participantsSheet.getLastRow() - 1, 3).getValues() : [];
-  const ids = {};
+  const ids = new Set();
   const participants = [];
   participantRows.forEach(function (row, index) {
     if (row.every(function (cell) { return cell === ''; })) return;
@@ -195,8 +195,8 @@ function readData_() {
     if (!id || !name || typeof entries !== 'number' || !Number.isSafeInteger(entries) || entries < 0) {
       throw new Error('Invalid participant on row ' + (index + 2) + '. Use an ID, name, and nonnegative whole number of entries.');
     }
-    if (ids[id]) throw new Error('Duplicate participant ID: ' + id);
-    ids[id] = true;
+    if (ids.has(id)) throw new Error('Duplicate participant ID: ' + id);
+    ids.add(id);
     participants.push({ id: id, name: name, entries: entries, row: index + 2 });
   });
 
