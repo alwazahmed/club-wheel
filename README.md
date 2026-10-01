@@ -6,15 +6,15 @@ A GitHub Pages wheel game backed by a private Google Sheet. Every remaining entr
 
 Create a Google Sheet with exactly these two tabs and headers in row 1:
 
-| Participants |  |  |
-| --- | --- | --- |
-| ID | Name | Entries |
-
-| Winners |  |
+| Participants |  |
 | --- | --- |
-| ID | Name |
+| Full Name | Entries |
 
-Add one participant per row. `ID` must be unique and stable, `Name` can repeat, and `Entries` must be a nonnegative whole number. Entries determine the participant's chance on the wheel. Leave the Winners tab empty below its header; the game appends confirmed wins there.
+| Winners |
+| --- |
+| Full Name |
+
+Add one participant per row. `Full Name` must be unique; names that differ only by capitalization or surrounding spaces are rejected. `Entries` must be a nonnegative whole number. Entries determine the participant's chance on the wheel. Leave the Winners tab empty below its header; the game appends saved wins there. Repeat winners appear on separate rows.
 
 ## Deploy the Google Sheets backend
 
@@ -41,7 +41,7 @@ Serve the directory over HTTP, such as `python3 -m http.server 8000`, then open 
 
 - The game loads the participant and winner lists when it opens.
 - **Spin** chooses a weighted winner in the browser and starts the wheel animation immediately. The pending result survives a page reload in the same browser.
-- **Add winner** stages that person's ID and name in browser storage and subtracts one entry from the local wheel. People with more entries can win again. Nothing is written to the sheet yet.
+- **Add winner** stages that person's full name in browser storage and subtracts one entry from the local wheel. People with more entries can win again. Nothing is written to the sheet yet.
 - **Void draw** asks for a reason, then discards only the pending result. The reason is not saved.
 - **Done** validates the sheet against the session's starting participant list, then writes all entry reductions and winner rows in one atomic Sheets batch. Repeating Done after a lost response does not use more entries.
 - **Discard staged** clears the browser session after a confirmation prompt. Check the sheet first if a Done request may already have succeeded.
@@ -53,7 +53,7 @@ If the sheet changes while winners are staged, Done reports a conflict and leave
 
 - **SETUP NEEDED:** Add the Apps Script `/exec` URL to `config.js` and redeploy Pages.
 - **OFFLINE:** Check the Apps Script deployment access, `PUBLIC_ORIGIN`, and that the latest script version was deployed.
-- **Invalid participant:** Check that the named row has a unique ID, a name, and a numeric whole entry count of zero or more.
+- **Invalid participant:** Check that the row has a unique full name and a numeric whole entry count of zero or more.
 - **Request timed out:** Refresh the page, inspect the sheet, and press Done again. The backend recognizes the session ID and checks the written rows before retrying.
 
 The game uses an embedded [Apps Script HTML Service](https://developers.google.com/apps-script/guides/html) bridge and the [Sheets API atomic batch update](https://developers.google.com/workspace/sheets/api/reference/rest/v4/spreadsheets/batchUpdate). Apps Script [Lock Service](https://developers.google.com/apps-script/reference/lock/) serializes game operations.

@@ -13,10 +13,10 @@ export function chooseWinner(participants, random = Math.random()) {
 export function projectSession(sheetState, session) {
   if (!session) return sheetState;
   const used = new Map();
-  for (const winner of session.winners) used.set(winner.id, (used.get(winner.id) || 0) + 1);
+  for (const winner of session.winners) used.set(winner.name, (used.get(winner.name) || 0) + 1);
   const participants = session.baseParticipants.map(person => ({
     ...person,
-    entries: person.entries - (used.get(person.id) || 0)
+    entries: person.entries - (used.get(person.name) || 0)
   }));
   return {
     participants,
@@ -29,23 +29,25 @@ export function projectSession(sheetState, session) {
 export function isValidSession(session) {
   if (!session || typeof session.id !== 'string' || !/^[\w-]{8,100}$/.test(session.id) ||
       !Array.isArray(session.baseParticipants) || !Array.isArray(session.winners)) return false;
-  const ids = new Map();
+  const names = new Map();
   for (const person of session.baseParticipants) {
-    if (typeof person.id !== 'string' || !person.id || ids.has(person.id) ||
-        typeof person.name !== 'string' || !person.name ||
+    if (typeof person.name !== 'string' || !person.name.trim() ||
         !Number.isSafeInteger(person.entries) || person.entries < 0) return false;
-    ids.set(person.id, person);
+    const key = person.name.trim().toLocaleLowerCase();
+    if (names.has(key)) return false;
+    names.set(key, person);
   }
   const counts = new Map();
   for (const winner of session.winners) {
-    const person = ids.get(winner.id);
+    if (!winner || typeof winner.name !== 'string') return false;
+    const person = names.get(winner.name.trim().toLocaleLowerCase());
     if (!person || winner.name !== person.name) return false;
-    const count = (counts.get(winner.id) || 0) + 1;
+    const count = (counts.get(winner.name) || 0) + 1;
     if (count > person.entries) return false;
-    counts.set(winner.id, count);
+    counts.set(winner.name, count);
   }
   return session.pending === null || (session.pending &&
-    typeof session.pending.winnerId === 'string' &&
-    ids.get(session.pending.winnerId)?.name === session.pending.winnerName &&
-    (counts.get(session.pending.winnerId) || 0) < ids.get(session.pending.winnerId).entries);
+    typeof session.pending.winnerName === 'string' &&
+    names.get(session.pending.winnerName.trim().toLocaleLowerCase())?.name === session.pending.winnerName &&
+    (counts.get(session.pending.winnerName) || 0) < names.get(session.pending.winnerName.trim().toLocaleLowerCase()).entries);
 }

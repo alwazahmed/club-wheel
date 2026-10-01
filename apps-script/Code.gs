@@ -43,7 +43,7 @@ function commitSession(sessionId, baseParticipants, winners) {
     }
     plan.updates.forEach(function (item) {
       requests.push({ updateCells: {
-        start: { sheetId: data.participantsSheetId, rowIndex: item.row - 1, columnIndex: 2 },
+        start: { sheetId: data.participantsSheetId, rowIndex: item.row - 1, columnIndex: 1 },
         rows: [{ values: [{ userEnteredValue: { numberValue: item.remaining } }] }],
         fields: 'userEnteredValue'
       } });
@@ -51,7 +51,6 @@ function commitSession(sessionId, baseParticipants, winners) {
     requests.push({ updateCells: {
       start: { sheetId: winnersSheet.getSheetId(), rowIndex: plan.destinationRow - 1, columnIndex: 0 },
       rows: plan.winners.map(function (winner) { return { values: [
-        { userEnteredValue: { stringValue: winner.id } },
         { userEnteredValue: { stringValue: winner.name } }
       ] }; }), fields: 'userEnteredValue'
     } });
@@ -98,56 +97,55 @@ function createPlan_(data, winnersSheet, baseParticipants, winners) {
       !sameParticipants_(data.participants, baseParticipants)) {
     throw new Error('The sheet changed while winners were staged. No entries were used. Refresh and review the sheet.');
   }
-  const byId = new Map();
-  data.participants.forEach(function (person) { byId.set(person.id, person); });
+  const byName = new Map();
+  data.participants.forEach(function (person) { byName.set(person.name, person); });
   const used = new Map();
   const cleanWinners = winners.map(function (winner) {
-    const person = winner && byId.get(winner.id);
+    const person = winner && byName.get(winner.name);
     if (!person || winner.name !== person.name) throw new Error('A staged winner does not match the sheet.');
-    const count = (used.get(person.id) || 0) + 1;
+    const count = (used.get(person.name) || 0) + 1;
     if (count > person.entries) throw new Error('A winner has more wins than available entries.');
-    used.set(person.id, count);
-    return { id: person.id, name: person.name };
+    used.set(person.name, count);
+    return { name: person.name };
   });
-  const updates = data.participants.filter(function (person) { return used.has(person.id); })
-    .map(function (person) { return { id: person.id, row: person.row, remaining: person.entries - used.get(person.id) }; });
+  const updates = data.participants.filter(function (person) { return used.has(person.name); })
+    .map(function (person) { return { name: person.name, row: person.row, remaining: person.entries - used.get(person.name) }; });
   return { baseParticipants: baseParticipants.map(function (person) {
-      return { id: person.id, name: person.name, entries: person.entries };
+      return { name: person.name, entries: person.entries };
     }), winners: cleanWinners, updates: updates, destinationRow: winnersSheet.getLastRow() + 1 };
 }
 
 function sameParticipants_(actual, expected) {
   return actual.length === expected.length && actual.every(function (person, index) {
     const other = expected[index];
-    return other && person.id === other.id && person.name === other.name && person.entries === other.entries;
+    return other && person.name === other.name && person.entries === other.entries;
   });
 }
 
 function destinationIsEmpty_(sheet, firstRow, count) {
   if (firstRow > sheet.getMaxRows()) return true;
   const height = Math.min(count, sheet.getMaxRows() - firstRow + 1);
-  return sheet.getRange(firstRow, 1, height, 2).getValues().every(function (row) {
-    return row[0] === '' && row[1] === '';
+  return sheet.getRange(firstRow, 1, height, 1).getValues().every(function (row) {
+    return row[0] === '';
   });
 }
 
 function planMatchesApplied_(data, winnersSheet, plan) {
   const lastRow = plan.destinationRow + plan.winners.length - 1;
   if (lastRow > winnersSheet.getMaxRows()) return false;
-  const recorded = winnersSheet.getRange(plan.destinationRow, 1, plan.winners.length, 2).getValues();
+  const recorded = winnersSheet.getRange(plan.destinationRow, 1, plan.winners.length, 1).getValues();
   if (!recorded.every(function (row, index) {
-    return String(row[0]).trim() === plan.winners[index].id &&
-      String(row[1]).trim() === plan.winners[index].name;
+    return String(row[0]).trim() === plan.winners[index].name;
   })) return false;
   return plan.updates.every(function (item) {
-    const person = data.participants.find(function (candidate) { return candidate.id === item.id; });
+    const person = data.participants.find(function (candidate) { return candidate.name === item.name; });
     return person && person.row === item.row && person.entries === item.remaining;
   });
 }
 
 function stateFromData_(data) {
   return { participants: data.participants.map(function (item) {
-      return { id: item.id, name: item.name, entries: item.entries };
+      return { name: item.name, entries: item.entries };
     }), winners: data.winners, pending: null,
     totalEntries: data.participants.reduce(function (sum, item) { return sum + item.entries; }, 0) };
 }
@@ -157,28 +155,28 @@ function readData_() {
   const participantsSheet = spreadsheet.getSheetByName(PARTICIPANTS_TAB);
   const winnersSheet = spreadsheet.getSheetByName(WINNERS_TAB);
   if (!participantsSheet || !winnersSheet) throw new Error('The sheet must have Participants and Winners tabs.');
-  requireHeaders_(participantsSheet, ['ID', 'Name', 'Entries']);
-  requireHeaders_(winnersSheet, ['ID', 'Name']);
+  requireHeaders_(participantsSheet, ['Full Name', 'Entries']);
+  requireHeaders_(winnersSheet, ['Full Name']);
   const rows = participantsSheet.getLastRow() > 1
-    ? participantsSheet.getRange(2, 1, participantsSheet.getLastRow() - 1, 3).getValues() : [];
-  const ids = new Set();
+    ? participantsSheet.getRange(2, 1, participantsSheet.getLastRow() - 1, 2).getValues() : [];
+  const names = new Set();
   const participants = [];
   rows.forEach(function (row, index) {
     if (row.every(function (cell) { return cell === ''; })) return;
-    const id = String(row[0]).trim();
-    const name = String(row[1]).trim();
-    const entries = row[2];
-    if (!id || !name || typeof entries !== 'number' || !Number.isSafeInteger(entries) || entries < 0) {
-      throw new Error('Invalid participant on row ' + (index + 2) + '. Use an ID, name, and nonnegative whole number of entries.');
+    const name = String(row[0]).trim();
+    const entries = row[1];
+    if (!name || typeof entries !== 'number' || !Number.isSafeInteger(entries) || entries < 0) {
+      throw new Error('Invalid participant on row ' + (index + 2) + '. Use a full name and nonnegative whole number of entries.');
     }
-    if (ids.has(id)) throw new Error('Duplicate participant ID: ' + id);
-    ids.add(id);
-    participants.push({ id: id, name: name, entries: entries, row: index + 2 });
+    const key = name.toLocaleLowerCase();
+    if (names.has(key)) throw new Error('Duplicate full name: ' + name);
+    names.add(key);
+    participants.push({ name: name, entries: entries, row: index + 2 });
   });
   const winnerRows = winnersSheet.getLastRow() > 1
-    ? winnersSheet.getRange(2, 1, winnersSheet.getLastRow() - 1, 2).getValues() : [];
-  const winners = winnerRows.filter(function (row) { return row[0] !== '' || row[1] !== ''; })
-    .map(function (row) { return { id: String(row[0]).trim(), name: String(row[1]).trim() }; });
+    ? winnersSheet.getRange(2, 1, winnersSheet.getLastRow() - 1, 1).getValues() : [];
+  const winners = winnerRows.filter(function (row) { return row[0] !== ''; })
+    .map(function (row) { return { name: String(row[0]).trim() }; });
   return { spreadsheet: spreadsheet, participantsSheetId: participantsSheet.getSheetId(), participants: participants, winners: winners };
 }
 

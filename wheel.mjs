@@ -16,8 +16,8 @@ export function buildSegments(participants) {
   });
 }
 
-export function targetRotation(current, segments, winnerId, revolutions = 6) {
-  const segment = segments.find(item => item.id === winnerId);
+export function targetRotation(current, segments, winnerName, revolutions = 6) {
+  const segment = segments.find(item => item.name === winnerName);
   if (!segment) throw new Error('The selected winner is no longer on the wheel. Refresh the game.');
   const center = (segment.start + segment.end) / 2;
   const desired = ((-center * TAU) % TAU + TAU) % TAU;

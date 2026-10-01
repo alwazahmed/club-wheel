@@ -48,7 +48,7 @@ button:disabled{cursor:not-allowed;opacity:.48}
 .idle-icon{width:52px;height:52px;margin:0 auto 13px;display:grid;place-items:center;border-radius:50%;border:1px solid #b9f24766;color:#b9f247;font-size:24px;background:#b9f24714}
 .draw-idle h2,.draw-result h2{font-family:'Space Grotesk',sans-serif;margin:0 0 7px;font-size:25px;letter-spacing:-.04em}
 .draw-idle p,.draw-result p{margin:0;color:#9facbf;font-size:13px;line-height:1.5}
-.draw-result{padding-top:22px}.result-label{display:block;color:#b9f247;font-size:10px;font-weight:800;letter-spacing:.2em;margin-bottom:7px}.draw-result h2{font-size:clamp(28px,3vw,42px);color:#fff;overflow-wrap:anywhere}.winner-id{display:block;color:#a9b5cb;font-size:11px;margin-bottom:10px}
+.draw-result{padding-top:22px}.result-label{display:block;color:#b9f247;font-size:10px;font-weight:800;letter-spacing:.2em;margin-bottom:7px}.draw-result h2{font-size:clamp(28px,3vw,42px);color:#fff;overflow-wrap:anywhere}
 .button{border:0;border-radius:11px;min-height:52px;font-size:12px;letter-spacing:.13em;font-weight:800;transition:transform .15s,filter .15s}.button:not(:disabled):hover{transform:translateY(-2px);filter:brightness(1.08)}
 .button:focus-visible,.refresh-button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 .button-primary{width:100%;background:#b9f247;color:#15200a;box-shadow:0 9px 28px #b9f24730;font-size:13px}.button-primary span{font-size:18px;margin-right:8px;vertical-align:-2px}

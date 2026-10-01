@@ -7,7 +7,7 @@ const ui = {
   connection: $('connectionStatus'), players: $('playerCount'), entries: $('entryCount'),
   winnerCount: $('winnerCount'), eligible: $('eligibleCount'), participantList: $('participantList'),
   winnersList: $('winnersList'), drawIdle: $('drawIdle'), drawResult: $('drawResult'),
-  winnerName: $('winnerName'), winnerId: $('winnerId'), spin: $('spinButton'),
+  winnerName: $('winnerName'), spin: $('spinButton'),
   decisions: $('decisionButtons'), confirm: $('confirmButton'),
   done: $('doneButton'), discard: $('discardButton'), stagedCount: $('stagedCount')
 };
@@ -15,7 +15,7 @@ const ui = {
 let state = { participants: [], winners: [], pending: null, totalEntries: 0 };
 let sheetState = state;
 let session = null;
-const SESSION_KEY = 'club-wheel-session-v1';
+const SESSION_KEY = 'club-wheel-session-names-v1';
 let rotation = 0;
 let busy = false;
 let animating = false;
@@ -179,7 +179,6 @@ function renderControls() {
   ui.spin.textContent = animating ? 'SPINNING…' : '✳  SPIN THE WHEEL';
   if (showResult) {
     ui.winnerName.textContent = pending.winnerName;
-    ui.winnerId.textContent = `Participant ID: ${pending.winnerId}`;
   }
   ui.spin.disabled = !connected || busy || Boolean(pending) || state.totalEntries < 1;
   ui.confirm.disabled = busy;
@@ -233,8 +232,8 @@ function drawWheel() {
   ctx.strokeStyle = '#ffffffbb'; ctx.lineWidth = 4; ctx.stroke();
 }
 
-function animateTo(winnerId) {
-  const finish = targetRotation(rotation, buildSegments(state.participants), winnerId);
+function animateTo(winnerName) {
+  const finish = targetRotation(rotation, buildSegments(state.participants), winnerName);
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     rotation = finish % TAU;
     drawWheel();
@@ -263,7 +262,7 @@ async function refreshState() {
     session = readLocalSession();
     if (session?.pending) {
       const projected = projectSession(next, session);
-      rotation = targetRotation(rotation, buildSegments(projected.participants), session.pending.winnerId) % TAU;
+      rotation = targetRotation(rotation, buildSegments(projected.participants), session.pending.winnerName) % TAU;
     }
     updateState(next);
     const changed = session && JSON.stringify(next.participants) !== JSON.stringify(session.baseParticipants);
@@ -278,8 +277,8 @@ async function spin() {
     const winner = chooseWinner(state.participants);
     if (!winner) throw new Error('No entries remain. Refresh from the sheet and try again.');
     const next = session || { id: crypto.randomUUID(), baseParticipants: sheetState.participants, winners: [], pending: null };
-    saveSession({ ...next, pending: { winnerId: winner.id, winnerName: winner.name } });
-    await animateTo(winner.id);
+    saveSession({ ...next, pending: { winnerName: winner.name } });
+    await animateTo(winner.name);
   } catch (error) { setMessage(error.message); }
   finally { animating = false; busy = false; render(); }
 }
@@ -289,7 +288,7 @@ async function confirm() {
   busy = true; renderControls(); setMessage('');
   try {
     saveSession({ ...session, winners: [...session.winners,
-      { id: session.pending.winnerId, name: session.pending.winnerName }], pending: null });
+      { name: session.pending.winnerName }], pending: null });
     setMessage('Winner added to this browser. Spin again or press Done to save all winners.', 'success');
   } catch (error) { setMessage(error.message); }
   finally { busy = false; renderControls(); }
