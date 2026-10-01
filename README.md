@@ -1,6 +1,6 @@
 # Club Wheel
 
-A GitHub Pages wheel game backed by a private Google Sheet. Every remaining entry is one chance to win. A confirmed draw subtracts one entry and adds a row to Winners.
+A GitHub Pages wheel game backed by a private Google Sheet. Every entry is one chance to win. Confirming a winner adds them to Winners and removes their participant row, including all remaining entries.
 
 ## What the sheet contains
 
@@ -14,7 +14,7 @@ Create a Google Sheet with exactly these two tabs and headers in row 1:
 | --- | --- |
 | ID | Name |
 
-Add one participant per row. `ID` must be unique and stable, `Name` can repeat, and `Entries` must be a nonnegative whole number. You can add participants or change entry counts directly in the sheet. Leave the Winners tab empty below its header; the game appends confirmed wins there.
+Add one participant per row. `ID` must be unique and stable, `Name` can repeat, and `Entries` must be a nonnegative whole number. Entries determine the participant's chance on the wheel. Leave the Winners tab empty below its header; the game appends confirmed wins there.
 
 ## Deploy the Google Sheets backend
 
@@ -39,12 +39,13 @@ Serve the directory over HTTP, such as `python3 -m http.server 8000`, then open 
 
 ## How draws work
 
-- **Spin** chooses a weighted winner in the browser from the latest sheet data, saves the pending result in that browser, and starts the wheel animation immediately. The pending result survives a page reload in the same browser.
-- **Confirm winner** sends the selected ID and name to Apps Script, which checks the current sheet row, then atomically decreases Entries by one and adds the ID and name to Winners. A person with entries left can win again.
+- The game loads the participant and winner lists when it opens and reloads them after each confirmed winner.
+- **Spin** chooses a weighted winner in the browser, saves the pending result in that browser, and starts the wheel animation immediately. The pending result survives a page reload in the same browser.
+- **Confirm winner** sends the selected ID and name to Apps Script, which checks the participant is still eligible, adds the ID and name to Winners, and removes their entire row from Participants in one atomic Sheets batch. All of that person's entries are removed at once.
 - **Void draw** asks for a reason, then discards the pending result in the browser without changing the sheet. The reason is not saved.
 - The app prevents a new spin while a result is pending. It stops when all entries reach zero.
 
-If a sheet editor changes the selected participant's name or removes all their entries before confirmation, the game asks you to void the pending draw and spin again. Avoid editing participant rows during confirmation. A pending draw is stored only in the browser that spun it.
+If a sheet editor changes the selected participant's name or removes all their entries before confirmation, the game asks you to void the pending draw and spin again. The page does not monitor sheet edits while it is open; reload the page to fetch external edits. A pending draw is stored only in the browser that spun it.
 
 ## Troubleshooting
 

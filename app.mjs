@@ -8,7 +8,7 @@ const ui = {
   winnersList: $('winnersList'), drawIdle: $('drawIdle'), drawResult: $('drawResult'),
   winnerName: $('winnerName'), winnerId: $('winnerId'), spin: $('spinButton'),
   decisions: $('decisionButtons'), confirm: $('confirmButton'), void: $('voidButton'),
-  refresh: $('refreshButton'), voidDialog: $('voidDialog'), voidForm: $('voidForm'),
+  voidDialog: $('voidDialog'), voidForm: $('voidForm'),
   voidReason: $('voidReason'), cancelVoid: $('cancelVoid')
 };
 
@@ -186,7 +186,6 @@ function renderControls() {
   ui.spin.disabled = !connected || busy || Boolean(pending) || state.totalEntries < 1;
   ui.confirm.disabled = !connected || busy;
   ui.void.disabled = !connected || busy;
-  ui.refresh.disabled = !connected || busy;
   if (!pending && state.totalEntries < 1 && connected) {
     ui.drawIdle.querySelector('h2').textContent = 'All entries have been used.';
     ui.drawIdle.querySelector('p').textContent = 'Add entries in the sheet to play again.';
@@ -294,7 +293,7 @@ async function confirm() {
     localStorage.removeItem(PENDING_DRAW_KEY);
     next.pending = null;
     updateState(next);
-    setMessage('Winner confirmed. One entry was used.', 'success');
+    setMessage('Winner confirmed and removed from the participant list.', 'success');
   } catch (error) { setMessage(error.message); }
   finally { busy = false; renderControls(); }
 }
@@ -316,7 +315,6 @@ async function voidPending(reason) {
 ui.spin.addEventListener('click', spin);
 ui.confirm.addEventListener('click', confirm);
 ui.void.addEventListener('click', () => ui.voidDialog.showModal());
-ui.refresh.addEventListener('click', refreshState);
 ui.cancelVoid.addEventListener('click', () => ui.voidDialog.close());
 ui.voidForm.addEventListener('submit', event => {
   event.preventDefault();
@@ -325,4 +323,3 @@ ui.voidForm.addEventListener('submit', event => {
 new ResizeObserver(drawWheel).observe(ui.canvas);
 render();
 connectBridge();
-setInterval(() => { if (connected && !busy && !ui.voidDialog.open) refreshState(); }, 15000);

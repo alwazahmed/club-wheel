@@ -76,19 +76,22 @@ function confirmDraw(drawId, winnerId, winnerName) {
     }
     requests.push({
       updateCells: {
-        start: { sheetId: data.participantsSheetId, rowIndex: participant.row - 1, columnIndex: 2 },
-        rows: [{ values: [{ userEnteredValue: { numberValue: participant.entries - 1 } }] }],
-        fields: 'userEnteredValue'
-      }
-    });
-    requests.push({
-      updateCells: {
         start: { sheetId: winnersSheet.getSheetId(), rowIndex: destinationRow - 1, columnIndex: 0 },
         rows: [{ values: [
           { userEnteredValue: { stringValue: participant.id } },
           { userEnteredValue: { stringValue: participant.name } }
         ] }],
         fields: 'userEnteredValue'
+      }
+    });
+    requests.push({
+      deleteDimension: {
+        range: {
+          sheetId: data.participantsSheetId,
+          dimension: 'ROWS',
+          startIndex: participant.row - 1,
+          endIndex: participant.row
+        }
       }
     });
 
