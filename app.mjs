@@ -289,7 +289,6 @@ async function confirm() {
   try {
     saveSession({ ...session, winners: [...session.winners,
       { name: session.pending.winnerName }], pending: null });
-    setMessage('Winner added to this browser. Spin again or press Done to save all winners.', 'success');
   } catch (error) { setMessage(error.message); }
   finally { busy = false; renderControls(); }
 }
