@@ -41,9 +41,9 @@ Serve the directory over HTTP, such as `python3 -m http.server 8000`, then open 
 
 - The game loads the participant and winner lists when it opens.
 - **Spin** chooses a weighted winner in the browser and starts the wheel animation immediately. The pending result survives a page reload in the same browser.
-- **Add winner** stages that person's full name in browser storage and subtracts one entry from the local wheel. People with more entries can win again. Nothing is written to the sheet yet.
+- **Add winner** stages that person's full name in browser storage and removes them from the wheel, including all their remaining entries. Nothing is written to the sheet yet.
 - **Void draw** asks for a reason, then discards only the pending result. The reason is not saved.
-- **Done** validates the sheet against the session's starting participant list, then writes all entry reductions and winner rows in one atomic Sheets batch. Repeating Done after a lost response does not use more entries.
+- **Done** validates the sheet against the session's starting participant list, then sets each winner's Entries to zero and adds their names to Winners in one atomic Sheets batch. Repeating Done after a lost response does not write twice.
 - **Discard staged** clears the browser session after a confirmation prompt. Check the sheet first if a Done request may already have succeeded.
 - The app prevents a new spin while a result is pending. It stops when all local entries reach zero.
 

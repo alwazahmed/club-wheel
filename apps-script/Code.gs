@@ -99,17 +99,18 @@ function createPlan_(data, winnersSheet, baseParticipants, winners) {
   }
   const byName = new Map();
   data.participants.forEach(function (person) { byName.set(person.name, person); });
-  const used = new Map();
+  const used = new Set();
   const cleanWinners = winners.map(function (winner) {
     const person = winner && byName.get(winner.name);
     if (!person || winner.name !== person.name) throw new Error('A staged winner does not match the sheet.');
-    const count = (used.get(person.name) || 0) + 1;
-    if (count > person.entries) throw new Error('A winner has more wins than available entries.');
-    used.set(person.name, count);
+    if (person.entries < 1 || used.has(person.name)) {
+      throw new Error('A staged winner is no longer eligible or appears more than once.');
+    }
+    used.add(person.name);
     return { name: person.name };
   });
   const updates = data.participants.filter(function (person) { return used.has(person.name); })
-    .map(function (person) { return { name: person.name, row: person.row, remaining: person.entries - used.get(person.name) }; });
+    .map(function (person) { return { name: person.name, row: person.row, remaining: 0 }; });
   return { baseParticipants: baseParticipants.map(function (person) {
       return { name: person.name, entries: person.entries };
     }), winners: cleanWinners, updates: updates, destinationRow: winnersSheet.getLastRow() + 1 };

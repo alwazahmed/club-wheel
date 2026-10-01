@@ -64,13 +64,13 @@ function harness(participants = [['Ava', 2], ['Ben', 1]]) {
 test('Done writes all staged winners and entry changes in one batch', () => {
   const h = harness();
   const base = h.run('getState').participants;
-  const winners = [{ name: 'Ava' }, { name: 'Ben' }, { name: 'Ava' }];
+  const winners = [{ name: 'Ava' }, { name: 'Ben' }];
   h.run('commitSession', 'session-01', base, winners);
   assert.equal(h.stats.batches, 1);
   assert.equal(h.stats.locks, 0);
   assert.equal(h.cells.Participants[1][1], 0);
   assert.equal(h.cells.Participants[2][1], 0);
-  assert.deepEqual(h.cells.Winners.slice(1), [['Ava'], ['Ben'], ['Ava']]);
+  assert.deepEqual(h.cells.Winners.slice(1), [['Ava'], ['Ben']]);
   h.run('commitSession', 'session-01', base, winners);
   assert.equal(h.stats.batches, 1);
 });
@@ -95,15 +95,15 @@ test('a lost response is recovered without writing a second batch', () => {
   assert.throws(() => h.run('commitSession', 'session-05', base, winners), /Lost response/);
   h.run('commitSession', 'session-05', base, winners);
   assert.equal(h.stats.batches, 1);
-  assert.equal(h.cells.Participants[1][1], 1);
+  assert.equal(h.cells.Participants[1][1], 0);
   assert.deepEqual(h.cells.Winners[1], ['Ava']);
 });
 
-test('rejects extra wins or mismatched names before any write', () => {
+test('rejects repeat wins or mismatched names before any write', () => {
   const h = harness();
   const base = h.run('getState').participants;
   assert.throws(() => h.run('commitSession', 'session-06', base,
-    [{ name: 'Ben' }, { name: 'Ben' }]), /more wins/);
+    [{ name: 'Ava' }, { name: 'Ava' }]), /more than once/);
   assert.throws(() => h.run('commitSession', 'session-07', base,
     [{ name: 'Wrong' }]), /does not match/);
   assert.equal(h.stats.batches, 0);

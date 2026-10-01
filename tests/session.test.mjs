@@ -8,7 +8,7 @@ const base = [
   { name: 'Cal', entries: 0 }
 ];
 
-test('weighted draw excludes zero entries and supports a repeat winner', () => {
+test('weighted draw removes a confirmed winner with every remaining entry', () => {
   assert.equal(chooseWinner(base, 0).name, 'Ava');
   assert.equal(chooseWinner(base, .66).name, 'Ava');
   assert.equal(chooseWinner(base, .99).name, 'Ben');
@@ -16,12 +16,13 @@ test('weighted draw excludes zero entries and supports a repeat winner', () => {
   const session = { id: 'session-01', baseParticipants: base,
     winners: [{ name: 'Ava' }], pending: null };
   const afterOne = projectSession(sheet, session);
-  assert.equal(afterOne.participants[0].entries, 1);
-  assert.equal(afterOne.totalEntries, 2);
-  assert.equal(chooseWinner(afterOne.participants, 0).name, 'Ava');
+  assert.equal(afterOne.participants[0].entries, 0);
+  assert.equal(afterOne.totalEntries, 1);
+  assert.equal(chooseWinner(afterOne.participants, 0).name, 'Ben');
+  assert.equal(isValidSession(session), true);
   session.winners.push({ name: 'Ava' });
   assert.equal(projectSession(sheet, session).participants[0].entries, 0);
-  assert.equal(isValidSession(session), true);
+  assert.equal(isValidSession(session), false);
 });
 
 test('staged session validation prevents overspending and bad pending draws', () => {
