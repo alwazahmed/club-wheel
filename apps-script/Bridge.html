@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+  <head><base target="_top"><meta charset="utf-8"></head>
+  <body>
+    <script>
+      const allowedOrigin = <?!= JSON.stringify(publicOrigin) ?>;
+      const methods = {
+        getState: function () { return []; },
+        startDraw: function () { return []; },
+        confirmDraw: function (args) { return [args[0]]; },
+        voidDraw: function (args) { return [args[0], args[1]]; }
+      };
+      let acknowledged = false;
+
+      function tellParent(message) {
+        window.top.postMessage(Object.assign({ app: 'club-wheel' }, message), allowedOrigin);
+      }
+
+      window.addEventListener('message', function (event) {
+        if (event.origin !== allowedOrigin || event.source !== window.top) return;
+        const message = event.data;
+        if (!message || message.app !== 'club-wheel') return;
+        if (message.type === 'ack') {
+          acknowledged = true;
+          return;
+        }
+        if (message.type !== 'request' || !Number.isSafeInteger(message.id) ||
+            !Object.prototype.hasOwnProperty.call(methods, message.method)) return;
+
+        const args = Array.isArray(message.args) ? message.args : [];
+        const approvedArgs = methods[message.method](args);
+        const runner = google.script.run
+          .withSuccessHandler(function (value) {
+            tellParent({ type: 'response', id: message.id, ok: true, value: value });
+          })
+          .withFailureHandler(function (error) {
+            tellParent({ type: 'response', id: message.id, ok: false,
+              error: error && error.message ? error.message : 'The sheet request failed.' });
+          });
+        runner[message.method](...approvedArgs);
+      });
+
+      tellParent({ type: 'ready' });
+      const reminder = setInterval(function () {
+        if (acknowledged) clearInterval(reminder);
+        else tellParent({ type: 'ready' });
+      }, 1000);
+    </script>
+  </body>
+</html>

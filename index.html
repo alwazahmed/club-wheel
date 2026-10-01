@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0c1020">
+  <title>Club Wheel — Spin to Win</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./config.js"></script>
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">✳</span><span>CLUB <strong>WHEEL</strong></span></div>
+      <span class="event-pill"><span class="live-dot"></span> LIVE EVENT GAME</span>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <div class="eyebrow"><span class="eyebrow-line"></span> EVERY ENTRY HAS A CHANCE</div>
+        <h1 id="page-title">Ready to <em>spin?</em></h1>
+        <p>One spin. One winner. Let the wheel decide.</p>
+      </section>
+
+      <div id="setupNotice" class="notice hidden" role="alert">
+        <strong>Connect the game to Google Sheets</strong>
+        <span>Add your deployed Apps Script URL to <code>config.js</code>, then reload this page.</span>
+      </div>
+      <div id="message" class="message hidden" role="status" aria-live="polite"></div>
+
+      <div class="game-layout">
+        <section class="wheel-panel" aria-label="Prize wheel">
+          <div class="panel-topline"><span>THE WHEEL</span><span id="connectionStatus" class="connection-status">CONNECTING</span></div>
+          <div class="wheel-stage">
+            <div class="wheel-glow"></div>
+            <div class="wheel-outer">
+              <canvas id="wheelCanvas" width="720" height="720" aria-label="Weighted wheel of participants"></canvas>
+              <div class="wheel-hub" aria-hidden="true"><span>✳</span></div>
+            </div>
+            <div class="wheel-pointer" aria-hidden="true"></div>
+          </div>
+          <div class="wheel-footer"><span>GOOD LUCK, EVERYONE</span><span class="sparkles" aria-hidden="true">✦ ✳ ✦</span></div>
+        </section>
+
+        <aside class="control-panel" aria-label="Game controls">
+          <div class="stats-row">
+            <div class="stat"><span class="stat-label">PLAYERS</span><strong id="playerCount">—</strong></div>
+            <div class="stat"><span class="stat-label">ENTRIES LEFT</span><strong id="entryCount">—</strong></div>
+            <div class="stat"><span class="stat-label">WINNERS</span><strong id="winnerCount">—</strong></div>
+          </div>
+
+          <div class="draw-card">
+            <span class="card-kicker">CURRENT DRAW</span>
+            <div id="drawIdle" class="draw-idle">
+              <div class="idle-icon" aria-hidden="true">✦</div>
+              <h2>The next name is waiting.</h2>
+              <p>Each remaining entry counts as one chance.</p>
+            </div>
+            <div id="drawResult" class="draw-result hidden" aria-live="polite">
+              <span class="result-label">THE WHEEL CHOSE</span>
+              <h2 id="winnerName"></h2>
+              <span id="winnerId" class="winner-id"></span>
+              <p>Confirm to use one entry and add this person to Winners.</p>
+            </div>
+            <button id="spinButton" class="button button-primary" type="button" disabled><span aria-hidden="true">✳</span> SPIN THE WHEEL</button>
+            <div id="decisionButtons" class="decision-buttons hidden">
+              <button id="confirmButton" class="button button-confirm" type="button">CONFIRM WINNER</button>
+              <button id="voidButton" class="button button-void" type="button">VOID DRAW</button>
+            </div>
+            <button id="refreshButton" class="refresh-button" type="button" disabled>↻ Refresh from sheet</button>
+          </div>
+
+          <div class="list-card">
+            <div class="list-heading"><h2>IN THE RUNNING</h2><span id="eligibleCount">0 eligible</span></div>
+            <div id="participantList" class="participant-list"><p class="empty-list">Loading participants…</p></div>
+          </div>
+          <div class="list-card winners-card">
+            <div class="list-heading"><h2>RECENT WINNERS</h2><span>CONFIRMED</span></div>
+            <ol id="winnersList" class="winners-list"><li class="empty-list">No winners yet</li></ol>
+          </div>
+        </aside>
+      </div>
+    </main>
+    <footer class="site-footer"><span>CLUB WHEEL</span><span>Powered by chance. Backed by your Google Sheet.</span></footer>
+  </div>
+
+  <dialog id="voidDialog" class="void-dialog" aria-labelledby="voidTitle">
+    <form id="voidForm" method="dialog">
+      <span class="card-kicker">VOID DRAW</span>
+      <h2 id="voidTitle">Discard this result?</h2>
+      <p>The entry count will stay the same. Enter a reason to continue; it will not be saved.</p>
+      <label for="voidReason">Reason</label>
+      <textarea id="voidReason" minlength="3" maxlength="200" required placeholder="Why is this draw being voided?"></textarea>
+      <div class="dialog-actions"><button id="cancelVoid" class="button button-void" type="button">KEEP RESULT</button><button class="button button-confirm" type="submit">VOID RESULT</button></div>
+    </form>
+  </dialog>
+</body>
+</html>
