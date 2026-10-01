@@ -1,4 +1,5 @@
 import { TAU, buildSegments, targetRotation, segmentColor } from './wheel.mjs';
+import { chooseWinner, projectSession, isValidSession } from './session.mjs';
 
 const $ = id => document.getElementById(id);
 const ui = {
@@ -7,13 +8,14 @@ const ui = {
   winnerCount: $('winnerCount'), eligible: $('eligibleCount'), participantList: $('participantList'),
   winnersList: $('winnersList'), drawIdle: $('drawIdle'), drawResult: $('drawResult'),
   winnerName: $('winnerName'), winnerId: $('winnerId'), spin: $('spinButton'),
-  decisions: $('decisionButtons'), confirm: $('confirmButton'), void: $('voidButton'),
-  voidDialog: $('voidDialog'), voidForm: $('voidForm'),
-  voidReason: $('voidReason'), cancelVoid: $('cancelVoid')
+  decisions: $('decisionButtons'), confirm: $('confirmButton'),
+  done: $('doneButton'), discard: $('discardButton'), stagedCount: $('stagedCount')
 };
 
 let state = { participants: [], winners: [], pending: null, totalEntries: 0 };
-const PENDING_DRAW_KEY = 'club-wheel-pending-draw';
+let sheetState = state;
+let session = null;
+const SESSION_KEY = 'club-wheel-session-v1';
 let rotation = 0;
 let busy = false;
 let animating = false;
@@ -97,28 +99,23 @@ function callBackend(method, ...args) {
 }
 
 function updateState(next) {
-  state = next;
+  sheetState = next;
+  state = projectSession(sheetState, session);
   render();
 }
 
-function readLocalPending() {
+function readLocalSession() {
   try {
-    const pending = JSON.parse(localStorage.getItem(PENDING_DRAW_KEY) || 'null');
-    return pending && typeof pending.drawId === 'string' && typeof pending.winnerId === 'string' &&
-      typeof pending.winnerName === 'string' ? pending : null;
+    const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+    return isValidSession(saved) ? saved : null;
   } catch { return null; }
 }
 
-function chooseWinner(participants) {
-  const eligible = participants.filter(person => Number.isSafeInteger(person.entries) && person.entries > 0);
-  const total = eligible.reduce((sum, person) => sum + person.entries, 0);
-  if (!Number.isSafeInteger(total) || total < 1) return null;
-  let ticket = Math.floor(Math.random() * total);
-  for (const person of eligible) {
-    ticket -= person.entries;
-    if (ticket < 0) return person;
-  }
-  return null;
+function saveSession(next) {
+  localStorage.setItem(SESSION_KEY, JSON.stringify(next));
+  session = next;
+  state = projectSession(sheetState, session);
+  render();
 }
 
 function render() {
@@ -126,6 +123,7 @@ function render() {
   ui.players.textContent = String(state.participants.length);
   ui.entries.textContent = state.totalEntries.toLocaleString();
   ui.winnerCount.textContent = String(state.winners.length);
+  ui.stagedCount.textContent = String(session?.winners.length || 0);
   ui.eligible.textContent = `${eligible.length} eligible`;
   renderPeople(eligible);
   renderWinners();
@@ -184,8 +182,9 @@ function renderControls() {
     ui.winnerId.textContent = `Participant ID: ${pending.winnerId}`;
   }
   ui.spin.disabled = !connected || busy || Boolean(pending) || state.totalEntries < 1;
-  ui.confirm.disabled = !connected || busy;
-  ui.void.disabled = !connected || busy;
+  ui.confirm.disabled = busy;
+  ui.done.disabled = !connected || busy || Boolean(pending) || !session?.winners.length;
+  ui.discard.disabled = busy || !session;
   if (!pending && state.totalEntries < 1 && connected) {
     ui.drawIdle.querySelector('h2').textContent = 'All entries have been used.';
     ui.drawIdle.querySelector('p').textContent = 'Add entries in the sheet to play again.';
@@ -261,13 +260,14 @@ async function refreshState() {
   if (busy) return;
   try {
     const next = await callBackend('getState');
-    next.pending = readLocalPending();
-    if (next.pending) {
-      const segment = buildSegments(next.participants).find(item => item.id === next.pending.winnerId);
-      if (segment) rotation = targetRotation(rotation, buildSegments(next.participants), next.pending.winnerId) % TAU;
+    session = readLocalSession();
+    if (session?.pending) {
+      const projected = projectSession(next, session);
+      rotation = targetRotation(rotation, buildSegments(projected.participants), session.pending.winnerId) % TAU;
     }
     updateState(next);
-    setMessage('');
+    const changed = session && JSON.stringify(next.participants) !== JSON.stringify(session.baseParticipants);
+    setMessage(changed ? 'The sheet changed while this browser has staged winners. Done will check for conflicts before writing.' : '', changed ? 'error' : 'success');
   } catch (error) { setMessage(error.message); }
 }
 
@@ -277,9 +277,8 @@ async function spin() {
   try {
     const winner = chooseWinner(state.participants);
     if (!winner) throw new Error('No entries remain. Refresh from the sheet and try again.');
-    state.pending = { drawId: crypto.randomUUID(), winnerId: winner.id, winnerName: winner.name };
-    localStorage.setItem(PENDING_DRAW_KEY, JSON.stringify(state.pending));
-    render();
+    const next = session || { id: crypto.randomUUID(), baseParticipants: sheetState.participants, winners: [], pending: null };
+    saveSession({ ...next, pending: { winnerId: winner.id, winnerName: winner.name } });
     await animateTo(winner.id);
   } catch (error) { setMessage(error.message); }
   finally { animating = false; busy = false; render(); }
@@ -289,37 +288,41 @@ async function confirm() {
   if (busy || !state.pending) return;
   busy = true; renderControls(); setMessage('');
   try {
-    const next = await callBackend('confirmDraw', state.pending.drawId, state.pending.winnerId, state.pending.winnerName);
-    localStorage.removeItem(PENDING_DRAW_KEY);
-    next.pending = null;
-    updateState(next);
-    setMessage('Winner confirmed and removed from the participant list.', 'success');
+    saveSession({ ...session, winners: [...session.winners,
+      { id: session.pending.winnerId, name: session.pending.winnerName }], pending: null });
+    setMessage('Winner added to this browser. Spin again or press Done to save all winners.', 'success');
   } catch (error) { setMessage(error.message); }
   finally { busy = false; renderControls(); }
 }
 
-async function voidPending(reason) {
-  if (busy || !state.pending) return;
-  busy = true; renderControls(); setMessage('');
+async function done() {
+  if (busy || !connected || !session?.winners.length || session.pending) return;
+  busy = true; renderControls(); setMessage('Saving all winners to the sheet…', 'success');
   try {
-    localStorage.removeItem(PENDING_DRAW_KEY);
-    state.pending = null;
-    render();
-    ui.voidDialog.close();
-    ui.voidReason.value = '';
-    setMessage('Draw voided. No entry was used.', 'success');
+    const next = await callBackend('commitSession', session.id, session.baseParticipants, session.winners);
+    localStorage.removeItem(SESSION_KEY);
+    session = null;
+    updateState(next);
+    setMessage('All staged winners were saved to the sheet.', 'success');
   } catch (error) { setMessage(error.message); }
   finally { busy = false; renderControls(); }
+}
+
+function discardSession() {
+  if (busy || !session) return;
+  if (!window.confirm('Discard every staged winner and the current draw in this browser? Check the sheet first if Done may already have saved them.')) return;
+  localStorage.removeItem(SESSION_KEY);
+  session = null;
+  state = sheetState;
+  render();
+  setMessage('Staged results discarded. The sheet was not changed.', 'success');
+  if (connected) refreshState();
 }
 
 ui.spin.addEventListener('click', spin);
 ui.confirm.addEventListener('click', confirm);
-ui.void.addEventListener('click', () => ui.voidDialog.showModal());
-ui.cancelVoid.addEventListener('click', () => ui.voidDialog.close());
-ui.voidForm.addEventListener('submit', event => {
-  event.preventDefault();
-  if (ui.voidForm.reportValidity()) voidPending(ui.voidReason.value.trim());
-});
+ui.done.addEventListener('click', done);
+ui.discard.addEventListener('click', discardSession);
 new ResizeObserver(drawWheel).observe(ui.canvas);
 render();
 connectBridge();

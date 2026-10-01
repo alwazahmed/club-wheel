@@ -6,7 +6,7 @@
       const allowedOrigin = <?!= JSON.stringify(publicOrigin) ?>;
       const methods = {
         getState: function () { return []; },
-        confirmDraw: function (args) { return [args[0], args[1], args[2]]; }
+        commitSession: function (args) { return [args[0], args[1], args[2]]; }
       };
       let acknowledged = false;
 

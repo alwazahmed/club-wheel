@@ -7,7 +7,7 @@
   <title>Club Wheel — Spin to Win</title>
   <link rel="stylesheet" href="./styles.css">
   <script src="./config.js?v=3"></script>
-  <script type="module" src="./app.mjs?v=4"></script>
+  <script type="module" src="./app.mjs?v=5"></script>
 </head>
 <body>
   <div class="page-shell">
@@ -61,13 +61,13 @@
               <span class="result-label">THE WHEEL CHOSE</span>
               <h2 id="winnerName"></h2>
               <span id="winnerId" class="winner-id"></span>
-              <p>Confirm to add this person to Winners and remove them from the wheel.</p>
+              <p>Confirm to add this winner to this browser. The sheet is updated when you press Done.</p>
             </div>
             <button id="spinButton" class="button button-primary" type="button" disabled><span aria-hidden="true">✳</span> SPIN THE WHEEL</button>
             <div id="decisionButtons" class="decision-buttons hidden">
-              <button id="confirmButton" class="button button-confirm" type="button">CONFIRM WINNER</button>
-              <button id="voidButton" class="button button-void" type="button">VOID DRAW</button>
+              <button id="confirmButton" class="button button-confirm" type="button">ADD WINNER</button>
             </div>
+            <div class="session-actions"><span><strong id="stagedCount">0</strong> staged winners</span><div class="session-action-buttons"><button id="discardButton" class="button button-void" type="button" disabled>DISCARD STAGED</button><button id="doneButton" class="button button-confirm" type="button" disabled>DONE — SAVE TO SHEET</button></div></div>
           </div>
 
           <div class="list-card">
@@ -75,7 +75,7 @@
             <div id="participantList" class="participant-list"><p class="empty-list">Loading participants…</p></div>
           </div>
           <div class="list-card winners-card">
-            <div class="list-heading"><h2>RECENT WINNERS</h2><span>CONFIRMED</span></div>
+            <div class="list-heading"><h2>RECENT WINNERS</h2><span>INCLUDING STAGED</span></div>
             <ol id="winnersList" class="winners-list"><li class="empty-list">No winners yet</li></ol>
           </div>
         </aside>
@@ -84,15 +84,5 @@
     <footer class="site-footer"><span>CLUB WHEEL</span><span>Powered by chance. Backed by your Google Sheet.</span></footer>
   </div>
 
-  <dialog id="voidDialog" class="void-dialog" aria-labelledby="voidTitle">
-    <form id="voidForm" method="dialog">
-      <span class="card-kicker">VOID DRAW</span>
-      <h2 id="voidTitle">Discard this result?</h2>
-      <p>The entry count will stay the same. Enter a reason to continue; it will not be saved.</p>
-      <label for="voidReason">Reason</label>
-      <textarea id="voidReason" minlength="3" maxlength="200" required placeholder="Why is this draw being voided?"></textarea>
-      <div class="dialog-actions"><button id="cancelVoid" class="button button-void" type="button">KEEP RESULT</button><button class="button button-confirm" type="submit">VOID RESULT</button></div>
-    </form>
-  </dialog>
 </body>
 </html>

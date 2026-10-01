@@ -1,6 +1,6 @@
 # Club Wheel
 
-A GitHub Pages wheel game backed by a private Google Sheet. Every entry is one chance to win. Confirming a winner adds them to Winners and removes their participant row, including all remaining entries.
+A GitHub Pages wheel game backed by a private Google Sheet. Every remaining entry is one chance to win. Winners are staged in the browser during the event; **Done** saves them to the sheet together.
 
 ## What the sheet contains
 
@@ -23,7 +23,7 @@ Add one participant per row. `ID` must be unique and stable, `Name` can repeat, 
 3. Run `getState` once from the editor and approve its Google permissions. Then select **Deploy → New deployment → Web app**, set **Execute as: Me** and **Who has access: Anyone**, and deploy. Copy the `/exec` web app URL. A direct visit to the backend URL may show an empty bridge page; that is expected.
 4. Paste that URL into [`config.js`](config.js) as `appsScriptUrl`.
 
-The backend runs under the sheet owner's account; the sheet does **not** need public sharing. The web app itself is public: anyone with the game URL can spin, confirm, or void. Share the game link only with people you trust to operate it.
+The backend runs under the sheet owner's account; the sheet does **not** need public sharing. The web app itself is public: anyone with the game URL can spin, stage winners, or press Done. Share the game link only with people you trust to operate it.
 
 ## Publish the GitHub Pages game
 
@@ -39,19 +39,21 @@ Serve the directory over HTTP, such as `python3 -m http.server 8000`, then open 
 
 ## How draws work
 
-- The game loads the participant and winner lists when it opens and reloads them after each confirmed winner.
-- **Spin** chooses a weighted winner in the browser, saves the pending result in that browser, and starts the wheel animation immediately. The pending result survives a page reload in the same browser.
-- **Confirm winner** sends the selected ID and name to Apps Script, which checks the participant is still eligible, adds the ID and name to Winners, and removes their entire row from Participants in one atomic Sheets batch. All of that person's entries are removed at once.
-- **Void draw** asks for a reason, then discards the pending result in the browser without changing the sheet. The reason is not saved.
-- The app prevents a new spin while a result is pending. It stops when all entries reach zero.
+- The game loads the participant and winner lists when it opens.
+- **Spin** chooses a weighted winner in the browser and starts the wheel animation immediately. The pending result survives a page reload in the same browser.
+- **Add winner** stages that person's ID and name in browser storage and subtracts one entry from the local wheel. People with more entries can win again. Nothing is written to the sheet yet.
+- **Void draw** asks for a reason, then discards only the pending result. The reason is not saved.
+- **Done** validates the sheet against the session's starting participant list, then writes all entry reductions and winner rows in one atomic Sheets batch. Repeating Done after a lost response does not use more entries.
+- **Discard staged** clears the browser session after a confirmation prompt. Check the sheet first if a Done request may already have succeeded.
+- The app prevents a new spin while a result is pending. It stops when all local entries reach zero.
 
-If a sheet editor changes the selected participant's name or removes all their entries before confirmation, the game asks you to void the pending draw and spin again. The page does not monitor sheet edits while it is open; reload the page to fetch external edits. A pending draw is stored only in the browser that spun it.
+If the sheet changes while winners are staged, Done reports a conflict and leaves the browser session intact for review. Use one event device: staged results are visible only in that browser until Done. Reloading the page preserves them, and the sheet remains private.
 
 ## Troubleshooting
 
 - **SETUP NEEDED:** Add the Apps Script `/exec` URL to `config.js` and redeploy Pages.
 - **OFFLINE:** Check the Apps Script deployment access, `PUBLIC_ORIGIN`, and that the latest script version was deployed.
 - **Invalid participant:** Check that the named row has a unique ID, a name, and a numeric whole entry count of zero or more.
-- **Request timed out:** Refresh the page before trying again. A confirmation might have succeeded despite a lost response; the game checks the Winners row before retrying so it does not spend a second entry.
+- **Request timed out:** Refresh the page, inspect the sheet, and press Done again. The backend recognizes the session ID and checks the written rows before retrying.
 
 The game uses an embedded [Apps Script HTML Service](https://developers.google.com/apps-script/guides/html) bridge and the [Sheets API atomic batch update](https://developers.google.com/workspace/sheets/api/reference/rest/v4/spreadsheets/batchUpdate). Apps Script [Lock Service](https://developers.google.com/apps-script/reference/lock/) serializes game operations.

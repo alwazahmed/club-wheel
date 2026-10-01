@@ -26,7 +26,10 @@ function harness(participants = [['a', 'Ava', 2], ['b', 'Ben', 1]]) {
   const spreadsheet = { getId: () => 'test-sheet', getSheetByName: name => sheets[name] };
   const properties = {
     getProperty: key => props.get(key) ?? null,
-    setProperty: (key, value) => { props.set(key, value); },
+    setProperty: (key, value) => {
+      assert.ok(Buffer.byteLength(value, 'utf8') < 9000, 'Apps Script property value must stay below 9 KB');
+      props.set(key, value);
+    },
     deleteProperty: key => { props.delete(key); }
   };
   const context = vm.createContext({
@@ -35,95 +38,84 @@ function harness(participants = [['a', 'Ava', 2], ['b', 'Ben', 1]]) {
     LockService: { getScriptLock: () => ({
       waitLock: () => { stats.locks++; }, releaseLock: () => { stats.locks--; }
     }) },
-    Utilities: { getUuid: (() => { let id = 0; return () => `draw-${++id}`; })() },
     Sheets: { Spreadsheets: { batchUpdate: ({ requests }) => {
       stats.batches++;
       for (const request of requests) {
-        if (request.updateCells) {
-          const update = request.updateCells;
-          const tab = update.start.sheetId === 1 ? 'Participants' : 'Winners';
-          const rowIndex = update.start.rowIndex;
+        if (!request.updateCells) continue;
+        const update = request.updateCells;
+        const tab = update.start.sheetId === 1 ? 'Participants' : 'Winners';
+        update.rows.forEach((row, offset) => {
+          const rowIndex = update.start.rowIndex + offset;
           cells[tab][rowIndex] ||= [];
-          update.rows[0].values.forEach((value, index) => {
+          row.values.forEach((value, index) => {
             cells[tab][rowIndex][update.start.columnIndex + index] =
               value.userEnteredValue.numberValue ?? value.userEnteredValue.stringValue;
           });
-        }
+        });
       }
-      if (stats.failAfterApply) {
-        stats.failAfterApply = false;
-        throw new Error('Lost response after write');
-      }
+      if (stats.failAfterApply) { stats.failAfterApply = false; throw new Error('Lost response'); }
       return {};
     } } }
   });
   vm.runInContext(source, context);
-  vm.runInContext('Math.random = () => 0', context);
-  return { context, cells, stats, run: (expression, ...args) =>
-    vm.runInContext(expression, context)(...args) };
+  return { cells, stats, run: (expression, ...args) => vm.runInContext(expression, context)(...args) };
 }
 
-test('each entry occupies one ticket and zero-entry people are excluded', () => {
-  const h = harness([['a', 'Ava', 1], ['b', 'Ben', 3], ['c', 'Cal', 0]]);
-  const people = h.run('readData_').participants;
-  assert.equal(h.run('pickWinner_', people, 0).id, 'a');
-  assert.equal(h.run('pickWinner_', people, .249).id, 'a');
-  assert.equal(h.run('pickWinner_', people, .25).id, 'b');
-  assert.equal(h.run('pickWinner_', people, .999).id, 'b');
-});
-
-test('confirmation uses one entry, appends one winner, and repeat winners remain eligible', () => {
+test('Done writes all staged winners and entry changes in one batch', () => {
   const h = harness();
-  const first = h.run('startDraw');
-  assert.equal(first.pending.winnerName, 'Ava');
-  assert.equal(h.cells.Participants[1][2], 2);
-  h.run('confirmDraw', first.pending.drawId);
-  assert.equal(h.cells.Participants[1][2], 1);
-  assert.deepEqual(h.cells.Winners[1], ['a', 'Ava']);
-  const second = h.run('startDraw');
-  assert.equal(second.pending.winnerId, 'a');
-  h.run('confirmDraw', second.pending.drawId);
-  assert.equal(h.cells.Participants[1][2], 0);
-  assert.deepEqual(h.cells.Winners[2], ['a', 'Ava']);
-  assert.equal(h.stats.batches, 2);
+  const base = h.run('getState').participants;
+  const winners = [{ id: 'a', name: 'Ava' }, { id: 'b', name: 'Ben' }, { id: 'a', name: 'Ava' }];
+  h.run('commitSession', 'session-01', base, winners);
+  assert.equal(h.stats.batches, 1);
   assert.equal(h.stats.locks, 0);
+  assert.equal(h.cells.Participants[1][2], 0);
+  assert.equal(h.cells.Participants[2][2], 0);
+  assert.deepEqual(h.cells.Winners.slice(1), [['a', 'Ava'], ['b', 'Ben'], ['a', 'Ava']]);
+  h.run('commitSession', 'session-01', base, winners);
+  assert.equal(h.stats.batches, 1);
 });
 
-test('two simultaneous starts share one pending draw; duplicate confirm is harmless', () => {
+test('sheet edits and a second browser session cannot consume stale entries', () => {
   const h = harness();
-  const one = h.run('startDraw');
-  const two = h.run('startDraw');
-  assert.equal(one.pending.drawId, two.pending.drawId);
-  h.run('confirmDraw', one.pending.drawId);
-  h.run('confirmDraw', one.pending.drawId);
+  const base = h.run('getState').participants;
+  h.cells.Participants[1][2] = 1;
+  assert.throws(() => h.run('commitSession', 'session-02', base, [{ id: 'a', name: 'Ava' }]), /sheet changed/);
+  assert.equal(h.stats.batches, 0);
+  h.cells.Participants[1][2] = 2;
+  h.run('commitSession', 'session-03', base, [{ id: 'a', name: 'Ava' }]);
+  assert.throws(() => h.run('commitSession', 'session-04', base, [{ id: 'b', name: 'Ben' }]), /sheet changed/);
+  assert.equal(h.stats.batches, 1);
+});
+
+test('a lost response is recovered without writing a second batch', () => {
+  const h = harness();
+  const base = h.run('getState').participants;
+  const winners = [{ id: 'a', name: 'Ava' }];
+  h.stats.failAfterApply = true;
+  assert.throws(() => h.run('commitSession', 'session-05', base, winners), /Lost response/);
+  h.run('commitSession', 'session-05', base, winners);
   assert.equal(h.stats.batches, 1);
   assert.equal(h.cells.Participants[1][2], 1);
-  assert.equal(h.cells.Winners.length, 2);
+  assert.deepEqual(h.cells.Winners[1], ['a', 'Ava']);
 });
 
-test('void leaves the sheet unchanged and a stale winner cannot be confirmed', () => {
+test('rejects extra wins or mismatched names before any write', () => {
   const h = harness();
-  const first = h.run('startDraw');
-  assert.throws(() => h.run('voidDraw', first.pending.drawId, 'no'), /short reason/);
-  h.run('voidDraw', first.pending.drawId, 'Wrong prize');
-  assert.equal(h.cells.Participants[1][2], 2);
-  assert.equal(h.cells.Winners.length, 1);
-  const second = h.run('startDraw');
-  h.cells.Participants[1][2] = 0;
-  assert.throws(() => h.run('confirmDraw', second.pending.drawId), /no entries/);
-  assert.equal(h.run('getState').pending.drawId, second.pending.drawId);
+  const base = h.run('getState').participants;
+  assert.throws(() => h.run('commitSession', 'session-06', base,
+    [{ id: 'b', name: 'Ben' }, { id: 'b', name: 'Ben' }]), /more wins/);
+  assert.throws(() => h.run('commitSession', 'session-07', base,
+    [{ id: 'a', name: 'Wrong' }]), /does not match/);
   assert.equal(h.stats.batches, 0);
 });
 
-test('a lost batch response is recovered without spending a second entry', () => {
-  const h = harness();
-  const draw = h.run('startDraw');
-  h.stats.failAfterApply = true;
-  assert.throws(() => h.run('confirmDraw', draw.pending.drawId), /Lost response/);
-  assert.equal(h.cells.Participants[1][2], 1);
-  assert.deepEqual(h.cells.Winners[1], ['a', 'Ava']);
-  h.run('confirmDraw', draw.pending.drawId);
+test('large sessions split the retry plan into safe property values', () => {
+  const people = Array.from({ length: 450 }, (_, index) =>
+    [`id-${index}`, `Participant ${index} with a longer display name`, 2]);
+  const h = harness(people);
+  const base = h.run('getState').participants;
+  const winners = people.map(row => ({ id: row[0], name: row[1] }));
+  h.run('commitSession', 'session-large', base, winners);
   assert.equal(h.stats.batches, 1);
-  assert.equal(h.cells.Participants[1][2], 1);
-  assert.equal(h.run('getState').pending, null);
+  assert.equal(h.cells.Winners.length, 451);
 });
