@@ -27,6 +27,6 @@ export function targetRotation(current, segments, winnerName, revolutions = 6) {
 }
 
 export function segmentColor(index) {
-  const palette = ['#9ce86c','#ed7192','#67d6e2','#f6bd61','#a594f4','#7cadf2','#f28b6d','#d9db79'];
+  const palette = ['#ed2b24','#2ab8e4','#ffbf08','#075477','#f46b12','#8bdbef','#ffd969','#ef827c'];
   return palette[index % palette.length];
 }

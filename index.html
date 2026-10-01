@@ -3,24 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0c1020">
-  <title>Club Wheel — Spin to Win</title>
-  <link rel="stylesheet" href="./styles.css">
+  <meta name="theme-color" content="#ffffff">
+  <title>GGT YES — Spin the Wheel</title>
+  <link rel="stylesheet" href="./styles.css?v=2">
   <script src="./config.js?v=3"></script>
-  <script type="module" src="./app.mjs?v=7"></script>
+  <script type="module" src="./app.mjs?v=8"></script>
 </head>
 <body>
   <div class="page-shell">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark" aria-hidden="true">✳</span><span>CLUB <strong>WHEEL</strong></span></div>
-      <span class="event-pill"><span class="live-dot"></span> LIVE EVENT GAME</span>
+      <div class="brand"><img src="./assets/ggt-yes-logo.png" alt="GGT YES — Genç Girişimciler Topluluğu" width="268" height="136"><span class="brand-title">SPIN THE WHEEL</span></div>
+      <span class="event-pill"><span class="live-dot"></span> GGT YES EVENT</span>
     </header>
 
     <main>
       <section class="hero" aria-labelledby="page-title">
-        <div class="eyebrow"><span class="eyebrow-line"></span> EVERY ENTRY HAS A CHANCE</div>
+        <div class="eyebrow"><span class="eyebrow-line"></span> GGT YES · EVERY ENTRY COUNTS <span class="eyebrow-line"></span></div>
         <h1 id="page-title">Ready to <em>spin?</em></h1>
-        <p>One spin. One winner. Let the wheel decide.</p>
+        <p>One wheel. One big moment. Good luck, everyone!</p>
       </section>
 
       <div id="setupNotice" class="notice hidden" role="alert">
@@ -36,11 +36,11 @@
             <div class="wheel-glow"></div>
             <div class="wheel-outer">
               <canvas id="wheelCanvas" width="720" height="720" aria-label="Weighted wheel of participants"></canvas>
-              <div class="wheel-hub" aria-hidden="true"><span>✳</span></div>
+              <div class="wheel-hub" aria-hidden="true"><img src="./assets/wheel-dog.png" alt=""></div>
             </div>
             <div class="wheel-pointer" aria-hidden="true"></div>
           </div>
-          <div class="wheel-footer"><span>GOOD LUCK, EVERYONE</span><span class="sparkles" aria-hidden="true">✦ ✳ ✦</span></div>
+          <div class="wheel-footer"><span>GGT YES · GOOD LUCK!</span><span class="sparkles" aria-hidden="true">● ● ●</span></div>
         </section>
 
         <aside class="control-panel" aria-label="Game controls">
@@ -80,7 +80,7 @@
         </aside>
       </div>
     </main>
-    <footer class="site-footer"><span>CLUB WHEEL</span><span>Powered by chance. Backed by your Google Sheet.</span></footer>
+    <footer class="site-footer"><span>GGT YES · CLUB WHEEL</span><span>Powered by chance. Backed by your Google Sheet.</span></footer>
   </div>
 
 </body>

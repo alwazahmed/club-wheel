@@ -207,8 +207,8 @@ function drawWheel() {
   const radius = center - 2;
   const segments = buildSegments(state.participants);
   if (!segments.length) {
-    ctx.fillStyle = '#253450'; ctx.beginPath(); ctx.arc(center, center, radius, 0, TAU); ctx.fill();
-    ctx.strokeStyle = '#ffffff28'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = '#dff3f8'; ctx.beginPath(); ctx.arc(center, center, radius, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#087da4'; ctx.lineWidth = 3; ctx.stroke();
     return;
   }
   segments.forEach(segment => {
@@ -216,13 +216,13 @@ function drawWheel() {
     const end = -Math.PI / 2 + rotation + segment.end * TAU;
     ctx.beginPath(); ctx.moveTo(center, center); ctx.arc(center, center, radius, start, end); ctx.closePath();
     ctx.fillStyle = segmentColor(segment.index); ctx.fill();
-    if (segments.length <= 90) { ctx.strokeStyle = '#142039a6'; ctx.lineWidth = 1.6; ctx.stroke(); }
+    if (segments.length <= 90) { ctx.strokeStyle = '#ffffffb0'; ctx.lineWidth = 1.6; ctx.stroke(); }
     if (segments.length <= 36 && (segment.end - segment.start) * TAU > .16) {
       const mid = (start + end) / 2;
       ctx.save(); ctx.translate(center, center); ctx.rotate(mid);
       ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
       ctx.font = `700 ${Math.max(10, Math.min(15, size / 34))}px DM Sans, sans-serif`;
-      ctx.fillStyle = '#102137';
+      ctx.fillStyle = [0, 3, 4].includes(segment.index % 8) ? '#ffffff' : '#073a5b';
       const label = segment.name.length > 14 ? `${segment.name.slice(0, 13)}…` : segment.name;
       ctx.fillText(label, radius - 15, 0, radius * .55);
       ctx.restore();
