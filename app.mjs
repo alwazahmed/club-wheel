@@ -1,5 +1,5 @@
 import { TAU, buildSegments, targetRotation, segmentColor } from './wheel.mjs';
-import { chooseWinner, projectSession, isValidSession } from './session.mjs';
+import { chooseWinner, projectSession, isValidSession } from './session.mjs?v=2';
 
 const $ = id => document.getElementById(id);
 const ui = {
