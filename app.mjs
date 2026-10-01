@@ -73,7 +73,7 @@ function connectBridge() {
   const frame = document.createElement('iframe');
   frame.src = scriptUrl;
   frame.title = 'Google Sheets connection';
-  frame.hidden = true;
+  frame.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;';
   frame.setAttribute('aria-hidden', 'true');
   document.body.appendChild(frame);
   setTimeout(() => {
