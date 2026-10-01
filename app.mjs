@@ -13,6 +13,7 @@ const ui = {
 };
 
 let state = { participants: [], winners: [], pending: null, totalEntries: 0 };
+const PENDING_DRAW_KEY = 'club-wheel-pending-draw';
 let rotation = 0;
 let busy = false;
 let animating = false;
@@ -98,6 +99,26 @@ function callBackend(method, ...args) {
 function updateState(next) {
   state = next;
   render();
+}
+
+function readLocalPending() {
+  try {
+    const pending = JSON.parse(localStorage.getItem(PENDING_DRAW_KEY) || 'null');
+    return pending && typeof pending.drawId === 'string' && typeof pending.winnerId === 'string' &&
+      typeof pending.winnerName === 'string' ? pending : null;
+  } catch { return null; }
+}
+
+function chooseWinner(participants) {
+  const eligible = participants.filter(person => Number.isSafeInteger(person.entries) && person.entries > 0);
+  const total = eligible.reduce((sum, person) => sum + person.entries, 0);
+  if (!Number.isSafeInteger(total) || total < 1) return null;
+  let ticket = Math.floor(Math.random() * total);
+  for (const person of eligible) {
+    ticket -= person.entries;
+    if (ticket < 0) return person;
+  }
+  return null;
 }
 
 function render() {
@@ -241,6 +262,11 @@ async function refreshState() {
   if (busy) return;
   try {
     const next = await callBackend('getState');
+    next.pending = readLocalPending();
+    if (next.pending) {
+      const segment = buildSegments(next.participants).find(item => item.id === next.pending.winnerId);
+      if (segment) rotation = targetRotation(rotation, buildSegments(next.participants), next.pending.winnerId) % TAU;
+    }
     updateState(next);
     setMessage('');
   } catch (error) { setMessage(error.message); }
@@ -250,9 +276,12 @@ async function spin() {
   if (busy || state.pending || state.totalEntries < 1) return;
   busy = true; animating = true; renderControls(); setMessage('');
   try {
-    const next = await callBackend('startDraw');
-    updateState(next);
-    await animateTo(next.pending.winnerId);
+    const winner = chooseWinner(state.participants);
+    if (!winner) throw new Error('No entries remain. Refresh from the sheet and try again.');
+    state.pending = { drawId: crypto.randomUUID(), winnerId: winner.id, winnerName: winner.name };
+    localStorage.setItem(PENDING_DRAW_KEY, JSON.stringify(state.pending));
+    render();
+    await animateTo(winner.id);
   } catch (error) { setMessage(error.message); }
   finally { animating = false; busy = false; render(); }
 }
@@ -261,7 +290,9 @@ async function confirm() {
   if (busy || !state.pending) return;
   busy = true; renderControls(); setMessage('');
   try {
-    const next = await callBackend('confirmDraw', state.pending.drawId);
+    const next = await callBackend('confirmDraw', state.pending.drawId, state.pending.winnerId, state.pending.winnerName);
+    localStorage.removeItem(PENDING_DRAW_KEY);
+    next.pending = null;
     updateState(next);
     setMessage('Winner confirmed. One entry was used.', 'success');
   } catch (error) { setMessage(error.message); }
@@ -272,8 +303,9 @@ async function voidPending(reason) {
   if (busy || !state.pending) return;
   busy = true; renderControls(); setMessage('');
   try {
-    const next = await callBackend('voidDraw', state.pending.drawId, reason);
-    updateState(next);
+    localStorage.removeItem(PENDING_DRAW_KEY);
+    state.pending = null;
+    render();
     ui.voidDialog.close();
     ui.voidReason.value = '';
     setMessage('Draw voided. No entry was used.', 'success');

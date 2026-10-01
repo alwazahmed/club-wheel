@@ -39,12 +39,12 @@ Serve the directory over HTTP, such as `python3 -m http.server 8000`, then open 
 
 ## How draws work
 
-- **Spin** asks Apps Script to choose a winner using the current entry counts, then animates the wheel to that participant. The selected winner is kept pending through reloads and across browsers.
-- **Confirm winner** atomically decreases that participant's Entries cell by one and adds their ID and name to Winners. A person with entries left can win again.
-- **Void draw** asks for a reason, then discards the pending result without changing the sheet. The reason is not saved.
+- **Spin** chooses a weighted winner in the browser from the latest sheet data, saves the pending result in that browser, and starts the wheel animation immediately. The pending result survives a page reload in the same browser.
+- **Confirm winner** sends the selected ID and name to Apps Script, which checks the current sheet row, then atomically decreases Entries by one and adds the ID and name to Winners. A person with entries left can win again.
+- **Void draw** asks for a reason, then discards the pending result in the browser without changing the sheet. The reason is not saved.
 - The app prevents a new spin while a result is pending. It stops when all entries reach zero.
 
-If a sheet editor changes the selected participant's name or removes all their entries before confirmation, the game asks you to void the pending draw and spin again. Avoid editing participant rows during confirmation.
+If a sheet editor changes the selected participant's name or removes all their entries before confirmation, the game asks you to void the pending draw and spin again. Avoid editing participant rows during confirmation. A pending draw is stored only in the browser that spun it.
 
 ## Troubleshooting
 

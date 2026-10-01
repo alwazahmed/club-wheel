@@ -23,46 +23,33 @@ function getState() {
   return stateFromData_(data);
 }
 
-function startDraw() {
-  return withLock_(function () {
-    const data = readData_();
-    const properties = PropertiesService.getScriptProperties();
-    const existing = readPending_(properties);
-    if (existing) return stateFromData_(data, existing);
-
-    const winner = pickWinner_(data.participants, Math.random());
-    if (!winner) throw new Error('No entries remain. Add entries in the sheet to play again.');
-
-    const pending = {
-      drawId: Utilities.getUuid(),
-      winnerId: winner.id,
-      winnerName: winner.name,
-      createdAt: new Date().toISOString()
-    };
-    properties.setProperty(PENDING_KEY, JSON.stringify(pending));
-    return stateFromData_(data, pending);
-  });
-}
-
-function confirmDraw(drawId) {
+function confirmDraw(drawId, winnerId, winnerName) {
   return withLock_(function () {
     const properties = PropertiesService.getScriptProperties();
-    let pending = readPending_(properties);
-    if (!pending || pending.drawId !== drawId) {
-      if (properties.getProperty(LAST_CONFIRMED_KEY) === drawId) return getState();
-      throw new Error('This draw is no longer pending. Refresh the game.');
+    if (typeof drawId !== 'string' || !drawId || typeof winnerId !== 'string' ||
+        !winnerId || typeof winnerName !== 'string' || !winnerName) {
+      throw new Error('The selected winner is invalid. Refresh the game and spin again.');
     }
+    if (properties.getProperty(LAST_CONFIRMED_KEY) === drawId) return getState();
 
     const data = readData_();
     const spreadsheet = data.spreadsheet;
     const winnersSheet = spreadsheet.getSheetByName(WINNERS_TAB);
-
-    // A previous batch may have succeeded while its response was lost. The
-    // fixed destination row lets a retry detect that without another write.
-    if (pending.commitRow && pending.commitRow <= winnersSheet.getMaxRows()) {
+    let pending = readPending_(properties);
+    if (pending && pending.drawId !== drawId) {
+      if (pending.commitRow && pending.commitRow <= winnersSheet.getMaxRows()) {
+        const recorded = winnersSheet.getRange(pending.commitRow, 1, 1, 2).getValues()[0];
+        if (String(recorded[0]).trim() === pending.winnerId &&
+            String(recorded[1]).trim() === pending.winnerName) {
+          properties.setProperty(LAST_CONFIRMED_KEY, pending.drawId);
+        }
+      }
+      properties.deleteProperty(PENDING_KEY);
+      pending = null;
+    }
+    if (pending && pending.commitRow && pending.commitRow <= winnersSheet.getMaxRows()) {
       const recorded = winnersSheet.getRange(pending.commitRow, 1, 1, 2).getValues()[0];
-      if (String(recorded[0]).trim() === pending.winnerId &&
-          String(recorded[1]).trim() === pending.winnerName) {
+      if (String(recorded[0]).trim() === winnerId && String(recorded[1]).trim() === winnerName) {
         properties.setProperty(LAST_CONFIRMED_KEY, drawId);
         properties.deleteProperty(PENDING_KEY);
         return getState();
@@ -73,14 +60,14 @@ function confirmDraw(drawId) {
     }
 
     const participant = data.participants.find(function (item) {
-      return item.id === pending.winnerId;
+      return item.id === winnerId;
     });
-    if (!participant || participant.name !== pending.winnerName || participant.entries < 1) {
+    if (!participant || participant.name !== winnerName || participant.entries < 1) {
       throw new Error('The selected participant changed or has no entries. Void this draw and spin again.');
     }
 
-    const destinationRow = pending.commitRow || winnersSheet.getLastRow() + 1;
-    pending.commitRow = destinationRow;
+    const destinationRow = pending ? pending.commitRow : winnersSheet.getLastRow() + 1;
+    pending = { drawId: drawId, winnerId: winnerId, winnerName: winnerName, commitRow: destinationRow };
     properties.setProperty(PENDING_KEY, JSON.stringify(pending));
 
     const requests = [];
@@ -113,62 +100,13 @@ function confirmDraw(drawId) {
   });
 }
 
-function voidDraw(drawId, reason) {
-  return withLock_(function () {
-    if (typeof reason !== 'string' || reason.trim().length < 3 || reason.trim().length > 200) {
-      throw new Error('Enter a short reason (3–200 characters) to void the draw.');
-    }
-    const properties = PropertiesService.getScriptProperties();
-    const pending = readPending_(properties);
-    if (!pending || pending.drawId !== drawId) {
-      throw new Error('This draw is no longer pending. Refresh the game.');
-    }
-    if (pending.commitRow && pending.commitRow <= getSpreadsheet_().getSheetByName(WINNERS_TAB).getMaxRows()) {
-      const winnersSheet = getSpreadsheet_().getSheetByName(WINNERS_TAB);
-      const recorded = winnersSheet.getRange(pending.commitRow, 1, 1, 2).getValues()[0];
-      if (String(recorded[0]).trim() === pending.winnerId &&
-          String(recorded[1]).trim() === pending.winnerName) {
-        properties.setProperty(LAST_CONFIRMED_KEY, drawId);
-        properties.deleteProperty(PENDING_KEY);
-        throw new Error('This draw was already confirmed. Refresh the game.');
-      }
-    }
-    // The reason deliberately is not stored, as requested for the simple sheet.
-    properties.deleteProperty(PENDING_KEY);
-    return getState();
-  });
-}
-
-function pickWinner_(participants, randomValue) {
-  const eligible = participants.filter(function (person) { return person.entries > 0; });
-  const total = eligible.reduce(function (sum, person) { return sum + person.entries; }, 0);
-  if (!total) return null;
-  if (typeof randomValue !== 'number' || randomValue < 0 || randomValue >= 1) {
-    throw new Error('Invalid random value.');
-  }
-  let ticket = Math.floor(randomValue * total);
-  for (let i = 0; i < eligible.length; i++) {
-    ticket -= eligible[i].entries;
-    if (ticket < 0) return eligible[i];
-  }
-  throw new Error('Could not select a winner.');
-}
-
-function stateFromData_(data, suppliedPending) {
-  const pending = suppliedPending === undefined
-    ? readPending_(PropertiesService.getScriptProperties())
-    : suppliedPending;
+function stateFromData_(data) {
   return {
     participants: data.participants.map(function (item) {
       return { id: item.id, name: item.name, entries: item.entries };
     }),
     winners: data.winners,
-    pending: pending ? {
-      drawId: pending.drawId,
-      winnerId: pending.winnerId,
-      winnerName: pending.winnerName,
-      createdAt: pending.createdAt
-    } : null,
+    pending: null,
     totalEntries: data.participants.reduce(function (sum, item) { return sum + item.entries; }, 0)
   };
 }

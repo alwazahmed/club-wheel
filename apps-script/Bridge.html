@@ -6,9 +6,7 @@
       const allowedOrigin = <?!= JSON.stringify(publicOrigin) ?>;
       const methods = {
         getState: function () { return []; },
-        startDraw: function () { return []; },
-        confirmDraw: function (args) { return [args[0]]; },
-        voidDraw: function (args) { return [args[0], args[1]]; }
+        confirmDraw: function (args) { return [args[0], args[1], args[2]]; }
       };
       let acknowledged = false;
 
